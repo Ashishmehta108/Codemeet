@@ -14,7 +14,7 @@ console.log(greet('World'));
 `);
 
   const [theme, setTheme] = useState("vs-dark");
-  const handleEditorMount: OnMount = (editorInstance, monaco) => {
+  const handleEditorMount: OnMount = (_, monaco) => {
     monaco.editor.defineTheme("dracula", {
       base: "vs-dark",
       inherit: true,
