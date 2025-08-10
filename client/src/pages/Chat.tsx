@@ -17,6 +17,7 @@ export default function Chat() {
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
+    
     const socket = new WebSocket(import.meta.env.VITE_WEBSOCKET_URL);
     wsRef.current = socket;
 
