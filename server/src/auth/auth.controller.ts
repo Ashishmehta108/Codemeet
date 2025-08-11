@@ -117,4 +117,9 @@ export class AuthController {
     });
     return data;
   }
+
+  @Get()
+  async sayHello() {
+    return 'Hello from AuthController!';
+  }
 }

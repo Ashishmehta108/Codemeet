@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
-import * as http from 'http';
+
 import { ChatGateway } from './ws/ws.gateway';
 
 async function bootstrap() {
@@ -15,13 +15,13 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const server = http.createServer(app.getHttpAdapter().getInstance());
+  // Start NestJS HTTP server
+  await app.listen(port);
+  console.log(`🚀 Server running on port ${port}`);
+
+  const server = app.getHttpAdapter().getInstance();
 
   const chatGateway = app.get(ChatGateway);
   chatGateway.initialize(server);
-
-  server.listen(port, '0.0.0.0', () => {
-    console.log(`🚀 Server running on port ${port}`);
-  });
 }
 bootstrap();
