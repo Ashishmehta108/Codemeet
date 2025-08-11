@@ -71,6 +71,7 @@ export const useAuthStore = create<AuthStore>()(
           if (!res.ok) throw new Error("Registration failed");
           const data = await res.json();
           set({ user: data.user });
+          return data.user;
         } finally {
           set({ loading: false });
         }

@@ -14,27 +14,21 @@ import {
 } from "../components/ui/card";
 import { toast } from "sonner";
 import { Loader } from "lucide-react";
+import { useAuthStore } from "../store/auth";
 
 export default function Register() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const register = useAuthStore((state) => state.register);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, name: username, password }),
-      });
-
-      if (!res.ok) throw new Error("Failed to create user");
-
+      const data = await register(email, username, password);
       toast.success("Account created successfully!");
       setEmail("");
       setUsername("");
