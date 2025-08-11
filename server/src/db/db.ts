@@ -7,10 +7,8 @@ import { drizzle } from 'drizzle-orm/node-postgres';
     {
       provide: 'db',
       useFactory: async () => {
-        // return drizzle(process.env.DATABASE_URL);
-        return drizzle(
-          'postgresql://codemeet_user:HjhK33a4YnWxal7rLFleG4YKNRSxG9v6@dpg-d2cbpd8gjchc73fvnjfg-a/codemeet',
-        );
+        return drizzle(process.env.DATABASE_URL);
+       
       },
     },
   ],

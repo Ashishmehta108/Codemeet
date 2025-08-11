@@ -9,7 +9,6 @@ import {
 import { UserService } from 'src/user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { UserDto } from 'src/user/userdto/user.dto';
-import { Request } from 'express';
 
 @Injectable()
 export class AuthService {

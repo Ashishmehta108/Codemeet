@@ -6,6 +6,7 @@ export const usersTable = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }).notNull(),
   refreshToken: varchar('refreshToken', { length: 255 }),
+  socketId: varchar('socketId', { length: 255 }),
 });
 
 export const roomUsersTable = pgTable('room_users', {

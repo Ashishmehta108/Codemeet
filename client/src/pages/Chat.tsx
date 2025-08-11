@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Send } from "iconsax-reactjs";
+import { io, Socket } from "socket.io-client";
+import { Textarea } from "../components/ui/textarea";
 
 type ChatResponse = {
   type: "init" | "chat";
@@ -8,49 +10,68 @@ type ChatResponse = {
 };
 
 export default function Chat() {
-  const wsRef = useRef<WebSocket | null>(null);
+  const wsRef = useRef<Socket | null>(null);
   const [chats, setChats] = useState<ChatResponse[]>([]);
   const [message, setMessage] = useState("");
   const localId = useRef<string>(crypto.randomUUID());
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const lastSentMessageRef = useRef<string>("");
+  const [isMounted, setisMounted] = useState(false);
+  useEffect(() => {
+    setisMounted(true);
+    return () => {
+      setisMounted(false);
+    };
+  }, []);
+
+  const socket = useMemo(
+    () =>
+      io("http://localhost:3000", {
+        withCredentials: true,
+        transports: ["polling", "websocket"],
+      }),
+    [isMounted]
+  );
 
   useEffect(() => {
-    
-    const socket = new WebSocket(import.meta.env.VITE_WEBSOCKET_URL);
     wsRef.current = socket;
 
-    socket.onopen = () => console.log("Connected to WS");
-    socket.onclose = () => console.log("WS disconnected");
-    socket.onerror = (err) => console.error("WS error:", err);
+    wsRef.current.on("connect", () => console.log("Connected to WS"));
+    wsRef.current.on("disconnect", () => console.log("WS disconnected"));
 
-    socket.onmessage = (event) => {
-      try {
-        const data: ChatResponse = JSON.parse(event.data);
+    wsRef.current.on("connect_error", (err) => {
+      console.error("Connection error:", err);
+    });
 
-        if (data.type === "init") {
-          localId.current = data.id;
-          console.log("My ID:", data.id);
+    wsRef.current.io.on("reconnect_attempt", (attempt) => {
+      console.log(`Reconnection attempt #${attempt}`);
+    });
+
+    // Listen to 'message' events from server
+    wsRef.current.on("message", (data: ChatResponse) => {
+      if (data.type === "init") {
+        localId.current = data.id;
+        console.log("My ID:", data.id);
+        return;
+      }
+
+      if (data.type === "chat") {
+        if (
+          data.id === localId.current &&
+          data.message === lastSentMessageRef.current
+        ) {
           return;
         }
-
-        if (data.type === "chat") {
-          if (
-            data.id === localId.current &&
-            data.message === lastSentMessageRef.current
-          ) {
-            return;
-          }
-          setChats((prev) => [...prev, data]);
-        }
-      } catch (err) {
-        console.error("Parse error:", err);
+        setChats((prev) => [...prev, data]);
       }
-    };
+    });
 
-    return () => socket.close();
-  }, []);
+    return () => {
+      wsRef.current?.disconnect();
+    };
+  }, [socket]);
 
   useEffect(() => {
     lastMessageRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -64,8 +85,6 @@ export default function Chat() {
     }
   }, [message]);
 
-  const lastSentMessageRef = useRef<string>("");
-
   const sendMessage = () => {
     const text = message.trim();
     if (!text) return;
@@ -77,7 +96,8 @@ export default function Chat() {
     };
     lastSentMessageRef.current = text;
 
-    wsRef.current?.send(JSON.stringify(msg));
+    wsRef.current?.emit("message", msg);
+
     setChats((prev) => [...prev, msg]);
     setMessage("");
   };
@@ -100,6 +120,7 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col h-screen bg-zinc-50">
+      {/* Header */}
       <div className="bg-white border-b border-zinc-200/50 backdrop-blur-xl">
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -115,6 +136,7 @@ export default function Chat() {
         </div>
       </div>
 
+      {/* Chat Messages */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto">
           <div className="px-4 sm:px-6 lg:px-8 py-6">
@@ -201,26 +223,20 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Input Area */}
       <div className="bg-white border-t border-zinc-200/50">
         <div className="px-4 sm:px-6 lg:px-8 py-4">
-          <div className="max-w-4xl mx-auto">
-            <div
-              className={`relative transition-all duration-300 ${
-                isFocused ? "scale-[1.01]" : ""
-              }`}
-            >
+          <div className="max-w-2xl mx-auto">
+            <div className={`relative transition-all duration-300`}>
               <div
                 className={`flex items-end rounded-2xl border transition-all duration-300 ${
                   isFocused
-                    ? "border-blue-500 bg-white shadow-lg shadow-blue-500/10"
+                    ? "border-zinc-300 bg-white shadow-lg shadow-zinc-500/10"
                     : "border-zinc-200 bg-zinc-50/50 hover:border-zinc-300"
                 }`}
               >
                 <textarea
                   ref={textareaRef}
-                  className="flex-1 bg-transparent resize-none outline-none text-sm placeholder-zinc-400 px-5 py-3.5 min-h-[48px] max-h-[150px] leading-relaxed"
-                  placeholder="Type your message..."
+                  className="flex-1 bg-transparent resize-none outline-none text-sm placeholder-zinc-400 px-5 py-3.5 min-h-[48px] max-h-[150px] leading-relaxed "
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -233,9 +249,9 @@ export default function Chat() {
                   <button
                     onClick={sendMessage}
                     disabled={!message.trim()}
-                    className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200 ${
+                    className={`relative flex items-center cursor-pointer justify-center w-9 h-9 rounded-xl transition-all duration-200 ${
                       message.trim()
-                        ? "bg-blue-600 text-white hover:bg-blue-700 hover:scale-110 shadow-md hover:shadow-lg active:scale-95"
+                        ? "bg-zinc-800 text-white hover:bg-zinc-700 shadow-md hover:shadow-lg "
                         : "bg-zinc-100 text-zinc-300 cursor-not-allowed"
                     }`}
                   >
@@ -243,14 +259,15 @@ export default function Chat() {
                   </button>
                 </div>
               </div>
-
-              <div className="absolute -bottom-5 left-5 text-[10px] text-zinc-400">
-                Press{" "}
-                <kbd className="px-1 py-0.5 bg-zinc-100 rounded text-zinc-500">
-                  Enter
-                </kbd>{" "}
-                to send
-              </div>
+              {!isFocused && (
+                <div className="absolute top-4.5 left-4 text-[12px] text-zinc-400" onClick={() => textareaRef.current?.focus()}>
+                  Type your message and press{" "}
+                  <kbd className="px-1 py-0.5 bg-zinc-100 rounded text-zinc-500">
+                    Enter
+                  </kbd>{" "}
+                  to send
+                </div>
+              )}
             </div>
           </div>
         </div>

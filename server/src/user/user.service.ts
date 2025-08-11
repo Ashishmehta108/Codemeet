@@ -49,6 +49,8 @@ export class UserService {
       .select()
       .from(usersTable)
       .where(eq(usersTable.name, name));
+    console.log('Checking password for user:', name, user, password);
+
     console.log(name, password, user.password);
     const isPasswordValid = await argon2.verify(user.password, password);
     console.log('isPasswordValid', isPasswordValid);
@@ -59,6 +61,16 @@ export class UserService {
       .select()
       .from(usersTable)
       .where(eq(usersTable.name, name));
+    return user;
+  }
+
+  async getUserByEmail(email: string) {
+    const [user] = await this.database
+      .select({
+        socketId: usersTable.socketId,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
     return user;
   }
   async createUser(user: UserDto) {
@@ -88,6 +100,17 @@ export class UserService {
       .where(eq(usersTable.userId, userId))
       .returning({
         refreshToken: usersTable.refreshToken,
+      });
+    return data;
+  }
+
+  async addsocketId(socketId: string, userId: string) {
+    const data = await this.database
+      .update(usersTable)
+      .set({ socketId: socketId })
+      .where(eq(usersTable.userId, userId))
+      .returning({
+        socketId: usersTable.socketId,
       });
     return data;
   }
