@@ -55,6 +55,7 @@ export class AuthController {
       message: 'User created successfully',
       access_token: data.access_token,
       refresh_token: data.refresh_token,
+      user: data.user,
     };
   }
   @HttpCode(HttpStatus.OK)

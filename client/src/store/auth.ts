@@ -22,7 +22,14 @@ export interface AuthStore {
     message: string;
   }>;
   logout: () => void;
-  register: (email: string, name: string, password: string) => Promise<void>;
+  register: (
+    email: string,
+    name: string,
+    password: string
+  ) => Promise<{
+    message: string;
+    user: User;
+  }>;
   fetchUser: () => Promise<void>;
   restoreSession: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
@@ -51,7 +58,7 @@ export const useAuthStore = create<AuthStore>()(
           if (!res.ok) throw new Error("Invalid username or password");
           const data = await res.json();
           set({ user: data.user });
-          return data;
+          return data.user;
         } finally {
           set({ loading: false });
         }
@@ -71,7 +78,14 @@ export const useAuthStore = create<AuthStore>()(
           if (!res.ok) throw new Error("Registration failed");
           const data = await res.json();
           set({ user: data.user });
-          return data.user;
+          return {
+            message: data.message,
+            user: {
+              id: data.userId,
+              name: data.name,
+              email: data.email,
+            },
+          };
         } finally {
           set({ loading: false });
         }

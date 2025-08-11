@@ -21,7 +21,15 @@ export class AuthService {
   async signIn(
     name: string,
     password: string,
-  ): Promise<{ access_token: string; refresh_token: string }> {
+  ): Promise<{
+    access_token: string;
+    refresh_token: string;
+    user: {
+      userId: string;
+      name: string;
+      email: string;
+    };
+  }> {
     const user = await this.usersService.getUser(name);
 
     const isPasswordValid = await this.usersService.checkPassword(
@@ -41,6 +49,11 @@ export class AuthService {
         expiresIn: '7d',
         secret: process.env.REFRESH_TOKEN_SECRET,
       }),
+      user: {
+        userId: user.userId,
+        name: user.name,
+        email: user.email,
+      },
     };
   }
 

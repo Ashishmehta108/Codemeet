@@ -29,6 +29,7 @@ export default function Register() {
 
     try {
       const data = await register(email, username, password);
+      if (!data.user.id) throw new Error("Registration failed");
       toast.success("Account created successfully!");
       setEmail("");
       setUsername("");
