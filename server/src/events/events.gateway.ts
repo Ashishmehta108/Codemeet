@@ -85,6 +85,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // const socketId = await this.userService.getUserByEmail(payload.target);
     // console.log(`Call from ${client.id} to ${socketId.socketId}`);
+  
+    this.server.emit("fileUpdated", {
+      file: payload.file,
+      fileName: payload.fileName,
+      sender: client.id
+    });
     console.log(payload.file, payload.fileName)
     // this.server
     //   .to(socketId.socketId)

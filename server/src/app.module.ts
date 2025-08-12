@@ -15,6 +15,7 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';
 import { EventsModule } from './events/events.module';
+import { CodefilesModule } from './codefiles/codefiles.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { EventsModule } from './events/events.module';
     AuthModule,
     JwtModule,
     EventsModule,
+    CodefilesModule,
   ],
   controllers: [AppController, UserController, RoomController, AuthController],
   providers: [
