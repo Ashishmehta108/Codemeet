@@ -8,6 +8,7 @@ import CodeEditor from "./pages/Editor";
 import Meet from "./pages/Meet";
 import ProtectedRoute from "./components/protectedroute";
 import VideoCall from "./pages/Videocall";
+import CreateNewFile from "./pages/CreateNewFile";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/call" element={<VideoCall />} />
+        <Route path="/editorfn" element={<CreateNewFile/>}/>
 
         <Route element={<ProtectedRoute />}>
          

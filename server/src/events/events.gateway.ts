@@ -19,7 +19,7 @@ import { UserService } from 'src/user/user.service';
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
-  constructor(private userService: UserService) {}
+  constructor(private userService: UserService) { }
   private clients: Set<string> = new Set();
 
   handleConnection(client: Socket) {
@@ -52,7 +52,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('answer')
   handleAnswer(client: Socket, payload: { target: string; answer: any }) {
     this.server.to(payload.target).emit('answer', {
-     answer: payload.answer,
+      answer: payload.answer,
       from: client.id,
     });
   }
@@ -76,4 +76,19 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .to(socketId.socketId)
       .emit('call', { sender: payload.sender, offer: payload.offer });
   }
+
+  @SubscribeMessage("updateFile")
+  async handleFileUpdate(
+    client: Socket,
+    payload: { file: string, fileName: string },
+  ) {
+
+    // const socketId = await this.userService.getUserByEmail(payload.target);
+    // console.log(`Call from ${client.id} to ${socketId.socketId}`);
+    console.log(payload.file, payload.fileName)
+    // this.server
+    //   .to(socketId.socketId)
+    // .emit('call', { sender: payload.sender, offer: payload.offer });
+  }
 }
+

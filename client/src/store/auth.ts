@@ -35,7 +35,7 @@ export interface AuthStore {
   updateUser: (updates: Partial<User>) => Promise<void>;
 }
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL;
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL ||"http://localhost:3000";
 console.log(import.meta.env);
 export const useAuthStore = create<AuthStore>()(
   persist<AuthStore>(
@@ -61,7 +61,7 @@ export const useAuthStore = create<AuthStore>()(
           return data.user;
         } finally {
           set({ loading: false });
-        }
+        } 
       },
 
       logout: () => set({ user: null }),
