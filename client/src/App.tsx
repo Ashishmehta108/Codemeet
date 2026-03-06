@@ -24,6 +24,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
          
           <Route path="/editor" element={<CodeEditor />} />
+          <Route path="/editor/:id" element={<CodeEditor />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/meet/:id" element={<Meet />} />
         </Route>
