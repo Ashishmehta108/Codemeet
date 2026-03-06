@@ -6,9 +6,12 @@ import dracula from "../themes/dracula.json";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/select";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { Play, Loader2, Terminal as TerminalIcon, Copy, Check, Share2 } from "lucide-react";
+import { Play, Loader2, Terminal as TerminalIcon, Copy, Check, Share2, PanelLeft, PanelRight, Command } from "lucide-react";
 import { Language, ExecutionResponse } from "../../../shared/src/types/code";
 import { toast } from "sonner";
+import { FileExplorer, FileNode } from "../components/FileExplorer";
+import { VideoPanel } from "../components/VideoPanel";
+import { cn } from "../lib/utils";
 
 const DEFAULT_CODE: Record<Language, string> = {
   typescript: `// Write your TypeScript code here\nfunction greet(name: string): string {\n  return 'Hello, ' + name + '!';\n}\n\nconsole.log(greet('World'));`,
@@ -22,6 +25,19 @@ const DEFAULT_CODE: Record<Language, string> = {
   css: `/* Write your CSS code here */\nbody {\n    background-color: #f0f0f0;\n}`,
 };
 
+const INITIAL_FILES: FileNode[] = [
+  {
+    id: 'root',
+    name: 'src',
+    type: 'folder',
+    children: [
+      { id: '1', name: 'main.ts', type: 'file', content: DEFAULT_CODE.typescript },
+      { id: '2', name: 'utils.ts', type: 'file', content: '// Utility functions' },
+    ]
+  },
+  { id: '3', name: 'package.json', type: 'file', content: '{\n  "name": "project"\n}' },
+];
+
 export default function CodeEditor() {
   const { id: roomId } = useParams<{ id: string }>();
   const [language, setLanguage] = useState<Language>("typescript");
@@ -30,6 +46,11 @@ export default function CodeEditor() {
   const [isRunning, setIsRunning] = useState(false);
   const [theme, setTheme] = useState("dracula");
   const [copied, setCopied] = useState(false);
+
+  const [files, setFiles] = useState<FileNode[]>(INITIAL_FILES);
+  const [selectedFileId, setSelectedFileId] = useState<string>('1');
+  const [showExplorer, setShowExplorer] = useState(true);
+  const [showVideo, setShowVideo] = useState(true);
 
   const editorRef = useRef<any>(null);
 
@@ -47,13 +68,79 @@ export default function CodeEditor() {
   const handleEditorChange: OnChange = (value) => {
     if (value !== undefined) {
       setCode(value);
+      // Update file content in our state
+      setFiles(prev => {
+        const updateNode = (nodes: FileNode[]): FileNode[] => {
+          return nodes.map(node => {
+            if (node.id === selectedFileId) return { ...node, content: value };
+            if (node.children) return { ...node, children: updateNode(node.children) };
+            return node;
+          });
+        };
+        return updateNode(prev);
+      });
     }
   };
 
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLang = e.target.value as Language;
-    setLanguage(newLang);
-    setCode(DEFAULT_CODE[newLang]);
+  const onFileSelect = (file: FileNode) => {
+    setSelectedFileId(file.id);
+    if (file.content !== undefined) {
+      setCode(file.content);
+      // Infer language from extension
+      if (file.name.endsWith('.ts')) setLanguage('typescript');
+      else if (file.name.endsWith('.js')) setLanguage('javascript');
+      else if (file.name.endsWith('.py')) setLanguage('python');
+      else if (file.name.endsWith('.go')) setLanguage('go');
+      else if (file.name.endsWith('.java')) setLanguage('java');
+      else if (file.name.endsWith('.cpp')) setLanguage('cpp');
+      else if (file.name.endsWith('.rs')) setLanguage('rust');
+      else if (file.name.endsWith('.html')) setLanguage('html');
+      else if (file.name.endsWith('.css')) setLanguage('css');
+    }
+  };
+
+  const createFile = (parentId: string | null) => {
+    const name = prompt("Enter file name:");
+    if (!name) return;
+    const newFile: FileNode = { id: Date.now().toString(), name, type: 'file', content: '' };
+    setFiles(prev => {
+      if (!parentId) return [...prev, newFile];
+      const addToParent = (nodes: FileNode[]): FileNode[] => {
+        return nodes.map(node => {
+          if (node.id === parentId) return { ...node, children: [...(node.children || []), newFile] };
+          if (node.children) return { ...node, children: addToParent(node.children) };
+          return node;
+        });
+      };
+      return addToParent(prev);
+    });
+  };
+
+  const createFolder = (parentId: string | null) => {
+    const name = prompt("Enter folder name:");
+    if (!name) return;
+    const newFolder: FileNode = { id: Date.now().toString(), name, type: 'folder', children: [] };
+    setFiles(prev => {
+      if (!parentId) return [...prev, newFolder];
+      const addToParent = (nodes: FileNode[]): FileNode[] => {
+        return nodes.map(node => {
+          if (node.id === parentId) return { ...node, children: [...(node.children || []), newFolder] };
+          if (node.children) return { ...node, children: addToParent(node.children) };
+          return node;
+        });
+      };
+      return addToParent(prev);
+    });
+  };
+
+  const deleteNode = (id: string) => {
+    const removeNode = (nodes: FileNode[]): FileNode[] => {
+      return nodes.filter(node => node.id !== id).map(node => ({
+        ...node,
+        children: node.children ? removeNode(node.children) : undefined
+      }));
+    };
+    setFiles(prev => removeNode(prev));
   };
 
   const runCode = async () => {
@@ -89,22 +176,41 @@ export default function CodeEditor() {
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur-md z-10">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-600 rounded-lg">
-              <TerminalIcon className="h-5 w-5 text-white" />
+      {/* Subtle Header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/40 backdrop-blur-xl z-20">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 mr-2">
+            <div className="p-1.5 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20">
+              <Command className="h-4 w-4 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight">DevSync</h1>
+            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">DevSync</h1>
           </div>
 
-          <div className="h-6 w-[1px] bg-zinc-800" />
+          <div className="flex items-center bg-zinc-800/50 rounded-lg p-0.5 border border-zinc-700/50">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn("h-7 px-2 rounded-md text-zinc-400", showExplorer && "bg-zinc-700 text-white")}
+              onClick={() => setShowExplorer(!showExplorer)}
+            >
+              <PanelLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn("h-7 px-2 rounded-md text-zinc-400", showVideo && "bg-zinc-700 text-white")}
+              onClick={() => setShowVideo(!showVideo)}
+            >
+              <PanelRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="h-4 w-[1px] bg-zinc-800" />
 
           <Select
             value={language}
-            onChange={handleLanguageChange}
-            className="w-40 bg-zinc-800/50 border-zinc-700 text-zinc-100 h-9 rounded-lg focus:ring-blue-500"
+            onChange={(e) => setLanguage(e.target.value as Language)}
+            className="w-32 bg-transparent border-none text-zinc-300 h-8 text-xs focus:ring-0 hover:bg-zinc-800/50 rounded-md transition-colors"
           >
             <option value="typescript">TypeScript</option>
             <option value="javascript">JavaScript</option>
@@ -118,135 +224,134 @@ export default function CodeEditor() {
           </Select>
 
           {roomId && (
-            <div className="flex items-center gap-2 bg-zinc-800/30 px-3 py-1.5 rounded-lg border border-zinc-800">
-              <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Room ID:</span>
-              <span className="text-xs font-mono text-blue-400">{roomId}</span>
-              <button onClick={copyRoomId} className="hover:text-white transition-colors">
-                {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-zinc-500" />}
-              </button>
+            <div
+              className="flex items-center gap-2 px-2 py-1 bg-zinc-800/30 rounded border border-zinc-800/50 hover:border-zinc-700 transition-colors cursor-pointer group"
+              onClick={copyRoomId}
+            >
+              <span className="text-[10px] font-bold text-zinc-500 uppercase">Room:</span>
+              <span className="text-[10px] font-mono text-blue-400/80 group-hover:text-blue-400 transition-colors">{roomId}</span>
+              {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-zinc-600 group-hover:text-zinc-400" />}
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-3">
            <Button
-             variant="outline"
-             className="border-zinc-700 hover:bg-zinc-800 text-zinc-300 gap-2 h-9"
+             variant="ghost"
+             size="sm"
+             className="text-zinc-400 hover:text-white gap-2 h-8 text-xs font-medium"
            >
-             <Share2 className="h-4 w-4" />
+             <Share2 className="h-3.5 w-3.5" />
              Invite
            </Button>
           <Button
             onClick={runCode}
             disabled={isRunning}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-5 shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+            className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-8 px-4 text-xs font-bold shadow-lg shadow-blue-500/10 transition-all active:scale-95"
           >
             {isRunning ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Play className="h-4 w-4 fill-current" />
+              <Play className="h-3.5 w-3.5 fill-current" />
             )}
             Run
           </Button>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content Layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Editor Area */}
-        <div className="flex-1 relative border-r border-zinc-800">
-          <Editor
-            height="100%"
-            language={language === "typescript" ? "typescript" : language === "javascript" ? "javascript" : language}
-            value={code}
-            onChange={handleEditorChange}
-            onMount={handleEditorMount}
-            theme={theme}
-            options={{
-              fontSize: 14,
-              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-              minimap: { enabled: true },
-              wordWrap: "on",
-              tabSize: 2,
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              padding: { top: 20 },
-              cursorSmoothCaretAnimation: "on",
-              smoothScrolling: true,
-              lineNumbersMinChars: 3,
-            }}
+        {/* Sidebar: Explorer */}
+        {showExplorer && (
+          <FileExplorer
+            files={files}
+            onFileSelect={onFileSelect}
+            selectedFileId={selectedFileId}
+            onCreateFile={createFile}
+            onCreateFolder={createFolder}
+            onDelete={deleteNode}
           />
-        </div>
+        )}
 
-        {/* Output Area */}
-        <div className="w-[400px] flex flex-col bg-zinc-950">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/30">
-            <div className="flex items-center gap-2">
-              <TerminalIcon className="h-4 w-4 text-zinc-500" />
-              <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Output</span>
-            </div>
-            {output && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[10px] text-zinc-500 hover:text-zinc-300"
-                onClick={() => setOutput(null)}
-              >
-                Clear
-              </Button>
-            )}
+        {/* Editor & Terminal Area */}
+        <div className="flex-1 flex flex-col relative min-w-0">
+          <div className="flex-1 relative">
+            <Editor
+              height="100%"
+              language={language === "typescript" ? "typescript" : language === "javascript" ? "javascript" : language}
+              value={code}
+              onChange={handleEditorChange}
+              onMount={handleEditorMount}
+              theme={theme}
+              options={{
+                fontSize: 13,
+                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                minimap: { enabled: false },
+                wordWrap: "on",
+                tabSize: 2,
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                padding: { top: 20 },
+                lineNumbersMinChars: 3,
+                renderLineHighlight: "all",
+                backgroundColor: "#09090b",
+              }}
+            />
           </div>
-          <ScrollArea className="flex-1 p-0 font-mono text-sm">
-            <div className="p-4">
-              {isRunning ? (
-                <div className="flex items-center gap-3 text-blue-500/70 py-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-xs animate-pulse">Compiling and executing...</span>
-                </div>
-              ) : output ? (
-                <div className="space-y-4">
-                  {output.stdout && (
-                    <div className="whitespace-pre-wrap text-emerald-400 leading-relaxed">
-                      {output.stdout}
-                    </div>
-                  )}
-                  {output.stderr && (
-                    <div className="whitespace-pre-wrap text-rose-400 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20 leading-relaxed">
-                      {output.stderr}
-                    </div>
-                  )}
-                  {!output.stdout && !output.stderr && (
-                    <div className="text-zinc-600 italic text-xs">Program executed with no output.</div>
-                  )}
 
-                  <div className="mt-6 pt-4 border-t border-zinc-900 flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-600 uppercase tracking-tighter">
-                      <span>Status</span>
-                      <span className={output.exitCode === 0 ? "text-emerald-500" : "text-rose-500"}>
-                        {output.exitCode === 0 ? "Success" : `Failed (Exit ${output.exitCode})`}
-                      </span>
-                    </div>
-                    {output.time !== undefined && (
-                      <div className="flex items-center justify-between text-[10px] text-zinc-600 uppercase tracking-tighter">
-                        <span>Execution Time</span>
-                        <span className="text-zinc-400 font-medium">{output.time}ms</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-[40vh] text-center px-6">
-                  <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
-                    <Play className="h-5 w-5 text-zinc-700" />
-                  </div>
-                  <p className="text-zinc-600 text-xs leading-relaxed max-w-[200px]">
-                    Click the <span className="text-blue-500 font-bold">Run</span> button to execute your code and see the results here.
-                  </p>
-                </div>
+          {/* Docked Terminal (Subtle) */}
+          <div className="h-1/3 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-md flex flex-col">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/50 bg-zinc-900/20">
+              <div className="flex items-center gap-2">
+                <TerminalIcon className="h-3.5 w-3.5 text-zinc-500" />
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Console Output</span>
+              </div>
+              {output && (
+                <button
+                  className="text-[10px] text-zinc-600 hover:text-zinc-400 font-medium uppercase transition-colors"
+                  onClick={() => setOutput(null)}
+                >
+                  Clear
+                </button>
               )}
             </div>
-          </ScrollArea>
+            <ScrollArea className="flex-1">
+              <div className="p-4 font-mono text-xs">
+                {isRunning ? (
+                  <div className="flex items-center gap-2 text-blue-400/60 py-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Executing program...</span>
+                  </div>
+                ) : output ? (
+                  <div className="space-y-3">
+                    {output.stdout && (
+                      <div className="whitespace-pre-wrap text-emerald-400/90 leading-relaxed">
+                        {output.stdout}
+                      </div>
+                    )}
+                    {output.stderr && (
+                      <div className="whitespace-pre-wrap text-rose-400 bg-rose-500/5 p-3 rounded border border-rose-500/10 leading-relaxed">
+                        {output.stderr}
+                      </div>
+                    )}
+                    {!output.stdout && !output.stderr && (
+                      <div className="text-zinc-600 italic">No output returned.</div>
+                    )}
+                    <div className="pt-3 flex gap-4 text-[10px] text-zinc-600 border-t border-zinc-900">
+                      <span>EXIT_CODE: <span className={output.exitCode === 0 ? "text-emerald-600" : "text-rose-600"}>{output.exitCode}</span></span>
+                      {output.time !== undefined && <span>ELAPSED: <span className="text-zinc-500">{output.time}ms</span></span>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-zinc-700 italic">Console is empty. Run code to see logs here.</div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
+
+        {/* Sidebar: Video Call */}
+        {showVideo && <VideoPanel roomId={roomId} />}
       </div>
     </div>
   );
