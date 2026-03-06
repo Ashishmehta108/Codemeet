@@ -82,15 +82,13 @@ export class CodeService {
       case 'java': return 'Main.java';
       case 'cpp': return 'main.cpp';
       case 'rust': return 'main.rs';
-      case 'html': return 'index.html';
-      case 'css': return 'style.css';
       default: return 'main.txt';
     }
   }
 
   private getDockerImage(language: Language): string {
     switch (language) {
-      case 'typescript': return 'node:18-alpine';
+      case 'typescript':
       case 'javascript': return 'node:18-alpine';
       case 'python': return 'python:3.10-alpine';
       case 'go': return 'golang:1.20-alpine';
@@ -104,14 +102,14 @@ export class CodeService {
   private getRunCommand(language: Language, fileName: string): string {
     switch (language) {
       case 'typescript':
-        return `node ${fileName}`;
+        // Stripping types as a fast fallback for TypeScript in a pure Node environment
+        return `npx -y esbuild ${fileName} --bundle --platform=node --outfile=out.js && node out.js`;
       case 'javascript': return `node ${fileName}`;
       case 'python': return `python3 ${fileName}`;
       case 'go': return `go run ${fileName}`;
       case 'java': return `javac ${fileName} && java Main`;
       case 'cpp': return `g++ -o main ${fileName} && ./main`;
       case 'rust': return `rustc ${fileName} -o main && ./main`;
-      case 'html': return `cat ${fileName}`;
       default: return `cat ${fileName}`;
     }
   }
