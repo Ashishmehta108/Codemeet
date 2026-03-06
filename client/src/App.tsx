@@ -20,11 +20,10 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/call" element={<VideoCall />} />
         <Route path="/editorfn" element={<CreateNewFile/>}/>
+        <Route path="/editor" element={<CodeEditor />} />
+        <Route path="/editor/:id" element={<CodeEditor />} />
 
         <Route element={<ProtectedRoute />}>
-         
-          <Route path="/editor" element={<CodeEditor />} />
-          <Route path="/editor/:id" element={<CodeEditor />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/meet/:id" element={<Meet />} />
         </Route>
